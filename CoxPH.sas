@@ -83,6 +83,9 @@ run;
 /*******************************************************/
 /* PROC Lifetest                                       */ 
 /*******************************************************/
+/* Preliminary analyses                                */
+/*******************************************************/
+
 
 
 /* Data:  
@@ -98,42 +101,37 @@ Coviariates: kps diagtime age prior
 
 /*******************/
 /* testing therapy */
+/*******************/
 
-
-/* Kaplan Meier survivor estimates*/
-proc lifetest data=lung method=km plots=(survival(cl), lls) outsurv=a1; 
+/* Kaplan Meier survivor estimates with                */
+/* Nelson Aalen cummulative hazard functions           */
+proc lifetest data=lung method=km nelson plots=(survival(cl), ls, lls) 
+	outsurv=a1; 
 /* lls for proportional hazards */
-	time t*dead_int(0);
-	strata therapy; 
-run;
-
-
-/* Kaplan Meier survivor estimates*/
-proc lifetest data=lung method=nelson plots=ls; 
-/* ls for cummulative hazard*/
+/* ls for cummulative hazard */
 	time t*dead_int(0);
 	strata therapy; 
 run;
 
 
 
+/* Kaplan Meier survivor estimates linear confidence   */
+proc lifetest data=lung method=km nelson conftype=linear plots=(survival(cl), ls, lls) 
+	outsurv=a1; 
+	time t*dead_int(0);
+	strata therapy; 
+run;
 
 
 
+/*******************************************************/
+/* testing therapy within cell types                   */
+/*******************************************************/
 
-/*************************************/
-/* testing therapy within cell types */
 
 /* Kaplan Meier survivor estimates*/   
-proc lifetest data=lung method=km plots=(survival(cl), lls)
+proc lifetest data=lung method=km nelson plots=(survival(cl), ls, lls)
 	outsurv=a2; 
-	time t*dead_int(0);
-	strata cell/ group=therapy; 
-run;
-
-
-/* Nelson Aalen Hazard Plots*/   
-proc lifetest data=lung method=nelson plots=ls; 
 	time t*dead_int(0);
 	strata cell/ group=therapy; 
 run;
@@ -145,12 +143,13 @@ run;
 
 
 
+
+
 /*******************************************************/
 /* Graphically checking the distribution of Y.         */
 /*                                                     */
-/*******************************************************/
-/* Below analyses are unnecessary in this case since   */
-/* the plots above show that exp works here.           */
+/*******************************************************/      
+/* Most linear plot == best model for distribution     */
 /* The code is included here for example puroses.      */
 /*******************************************************/
 
@@ -214,6 +213,7 @@ proc phreg data=lung;
 	ties=efron;
 run;
 
+
 proc phreg data=lung;
 	class cell;
     model t*dead_int(0) = kps diagtime age prior_int cell/ 
@@ -234,7 +234,7 @@ run;
 
 /* Backward selection eleminated 'therapy' with p=.19 */ 
 /* But it is the feature of interest so I will leave  */
-/* to test it in my final model.                      */ 
+/* it in to test it in my final model.                */ 
 
 /* Fit the *final* model with exact method.           */
 /*(Including therapy)                                 */ 
