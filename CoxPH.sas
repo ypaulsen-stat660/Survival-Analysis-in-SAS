@@ -216,7 +216,7 @@ run;
 
 proc phreg data=lung;
 	class cell;
-    model t*dead_int(0) = kps diagtime age prior_int cell/ 
+    model t*dead_int(0) = therapy kps diagtime age prior_int cell/ 
 	ties=exact;
 run;
 
