@@ -60,21 +60,9 @@ run;
 
 data lung;
 	set lung; 
-	dead_int  = input(dead_int, 1.);   /*Create new variables*/
-	prior_int  = input(prior_int, 1.);
-	therapy_int  = input(therapy_int, 1.);
-	cell_int  = input(cell_int, 1.); 
+	dead_int  = input(dead_int, 1.);         /*Create new variables*/
 	if dead = 'dead' then dead_int = 1;      /*Assign values to new variables*/
 	else dead_int = 0;
-	if prior = 'yes' then prior_int = 1;      
-	else prior_int = 0;
-
-	if therapy = 'standard' then therapy_int = 0; 
-	else therapy_int=1;
-	if cell = 'Squamous' then cell_int = 1; 
-	else if cell = 'Small' then cell_int = 2; 
-	else if cell = 'Adeno' then cell_int = 3; 
-	else cell_int = 4;
 run;
 
 /*Look at data*/
@@ -125,83 +113,28 @@ proc lifetest data=lung method=km nelson plots=(survival(cl), ls, lls)
 run;
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Testing all covariates with forward stepwise        */
-/* elimination.                                        */
+/* Testing all numerical covariates with forward       */
+/* stepwise elimination.                               */
 proc lifetest data=lung method=km plots = (survival(cl), ls, lls); 
 	time t*dead_int(0);
 	test kps diagtime age; 
 run; 
 
-/*Only kps is significant???                           */
+/* Looking at categorical variables individually       */
 
-
-
+/* Looking at cell */
 proc lifetest data=lung method=km plots = (survival(cl), ls, lls); 
 	time t*dead_int(0);
 	strata cell; 
 run; 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Kaplan Meier survivor estimates linear confidence   */
-proc lifetest data=lung method=km nelson conftype=linear plots=(survival(cl), ls, lls) 
-	outsurv=a1; 
+/* Looking at prior */
+proc lifetest data=lung method=km plots = (survival(cl), ls, lls); 
 	time t*dead_int(0);
-	strata therapy; 
-run;
+	strata prior; 
+run; 
+
+
 
 
 
@@ -221,6 +154,8 @@ run;
 /*******************************************************/
 /* End of proc lifetest section.                       */
 /*******************************************************/
+
+
 
 
 
@@ -262,10 +197,12 @@ run;
 
 
 proc gplot data=a3;
-title "Graphically checking for proportional hazards property";
-plot logH*t=therapy;
+	title "Graphically checking the proportional hazards assumption";
+	plot logH*t=therapy;
+	symbol1 i=join width=2 value=triangle c=steelblue;
+	symbol2 i=join width=2 value=circle c=grey;
 run;
-
+title; 
 /*******************************************************/
 /* End of cum hazard plots                             */
 /*******************************************************/
@@ -290,17 +227,11 @@ run;
 /* features are unimportant -> drop those and it may   */
 /* converge.                                           */ 
 title;
+
 proc phreg data=lung;
-	class therapy_int cell_int;
-    model t*dead_int(0) = therapy_int kps diagtime age prior_int cell_int/ 
+	class cell therapy prior;
+    model t*dead_int(0) = therapy kps diagtime age prior cell/ 
 	ties=efron;
-run;
-
-
-proc phreg data=lung;
-	class cell therapy;
-    model t*dead_int(0) = therapy kps diagtime age prior_int cell/ 
-	ties=exact;
 run;
 
 /* Full model, efron method, with backwards selection. */
@@ -315,23 +246,9 @@ run;
 
 
 
-/* Backward selection eleminated 'therapy' with p=.19 */ 
-/* But it is the feature of interest so I will leave  */
-/* it in to test in my final model.                   */ 
-
-/* Fit the *final* model with exact method.           */
-/*(Including therapy)                                 */ 
-
-proc phreg data=lung;
-	class cell therapy;
-    model t*dead_int(0)=therapy kps cell/ 
-	ties=exact;
-run;
-
 
 
 /* Fit the *final* model with exact method.           */
-/*(Excluding therapy)                                 */ 
 
 proc phreg data=lung;
 	class cell;
@@ -369,24 +286,58 @@ run;
 /*******************************************************/
 
 
-/* Including therapy                                   */   
-
-proc phreg data=lung;
-	class cell therapy; 
-	model t*dead_int(0)= therapy kps cell/ ties=exact;
-	assess ph/ resample;
-run;
-
-
-
-/* Excluding therapy                                   */   
-
 proc phreg data=lung;
 	class cell; 
 	model t*dead_int(0)= kps cell/ ties=exact;
 	assess ph/ resample;
 run;
 
+
+
+
+
+
+
+
+
+
+
+/*******************************************************/
+/* Plotting the Baseline Survival function             */
+/*******************************************************/
+
+
+
+
+
+/* Baseline survival function */
+data null;
+	input kps cell$10.;
+	cards;
+0 'Squamous'
+run;
+
+data null;
+  length cell $10;
+  format cell $10.;
+  set null;
+run;
+
+proc phreg data=lung;
+	class cell; 
+	model t*dead_int(0)= kps cell 
+	/ties=exact covb;
+   	baseline out=a covariates=null survival=s lower=lcl upper=ucl
+	cumhaz=H lowercumhaz=lH uppercumhaz=uH;
+run;
+
+
+/* Baseline survival & cumulative hazard functions */
+proc gplot data=a;
+	title "Baseline Survival Function";
+	symbol1 value=dot i=join;
+	plot s*t;
+run;
 
 
 
