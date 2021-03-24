@@ -56,17 +56,25 @@ data lung;
 	set valung; 
 run; 
 
-/*Change some variables for analysis.*/ 
-/*Create new variable called 'dead_int' with "dead" recorded as 1 and "censored" as 0.*/
-/*Create new variable called 'prior_int' with "Yes" recorded as 1 and "No" as 0.*/
+/*Code categorical variables as integers*/ 
+
 data lung;
 	set lung; 
 	dead_int  = input(dead_int, 1.);   /*Create new variables*/
-	prior_int  = input(prior_int, 1.); 
+	prior_int  = input(prior_int, 1.);
+	therapy_int  = input(therapy_int, 1.);
+	cell_int  = input(cell_int, 1.); 
 	if dead = 'dead' then dead_int = 1;      /*Assign values to new variables*/
 	else dead_int = 0;
 	if prior = 'yes' then prior_int = 1;      
 	else prior_int = 0;
+
+	if therapy = 'standard' then therapy_int = 0; 
+	else therapy_int=1;
+	if cell = 'Squamous' then cell_int = 1; 
+	else if cell = 'Small' then cell_int = 2; 
+	else if cell = 'Adeno' then cell_int = 3; 
+	else cell_int = 4;
 run;
 
 /*Look at data*/
@@ -76,6 +84,9 @@ run;
 /*******************************************************/
 /*  End of data processing steps                       */  
 /*******************************************************/
+
+
+
 
 
 
@@ -115,6 +126,76 @@ run;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Testing all covariates with forward stepwise        */
+/* elimination.                                        */
+proc lifetest data=lung method=km plots = (survival(cl), ls, lls); 
+	time t*dead_int(0);
+	test kps diagtime age; 
+run; 
+
+/*Only kps is significant???                           */
+
+
+
+proc lifetest data=lung method=km plots = (survival(cl), ls, lls); 
+	time t*dead_int(0);
+	strata cell; 
+run; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Kaplan Meier survivor estimates linear confidence   */
 proc lifetest data=lung method=km nelson conftype=linear plots=(survival(cl), ls, lls) 
 	outsurv=a1; 
@@ -133,7 +214,7 @@ run;
 proc lifetest data=lung method=km nelson plots=(survival(cl), ls, lls)
 	outsurv=a2; 
 	time t*dead_int(0);
-	strata cell/ group=therapy; 
+	strata cell/ group = therapy; 
 run;
 
 
@@ -163,19 +244,16 @@ data a3;
 	ltime = log(t);
 run;
 
-data a4;
-	set a2;
-	s = survival;
-	logH = log(-log(s));
-	lnorm = probit(1-s);
-	logit = log(s/(1-s));
-	ltime = log(t);
-run;
-
-*proc print data=a2; 
-*run; 
 
 /*logit for log-logistic, logH for weibull and lnorm for log-normal distribution */
+proc gplot data=a3;
+	symbol1 i=join width=2 value=triangle c=steelblue;
+	symbol2 i=join width=2 value=circle c=grey;
+	plot logit*ltime=kps logH*ltime=kps lnorm*ltime=kps; 
+run;
+
+
+
 proc gplot data=a3;
 	symbol1 i=join width=2 value=triangle c=steelblue;
 	symbol2 i=join width=2 value=circle c=grey;
@@ -183,13 +261,10 @@ proc gplot data=a3;
 run;
 
 
-
-proc gplot data=a4;
-	symbol1 i=join width=2 value=triangle c=steelblue;
-	symbol2 i=join width=2 value=circle c=grey;
-	plot logit*ltime=therapy logH*ltime=therapy lnorm*ltime=therapy; 
+proc gplot data=a3;
+title "Graphically checking for proportional hazards property";
+plot logH*t=therapy;
 run;
-
 
 /*******************************************************/
 /* End of cum hazard plots                             */
@@ -204,18 +279,26 @@ run;
 /*PROC PHREG                                           */
 /*******************************************************/
 
-/* Full model with 2 methods for ties                  */
-/* Breslow is default, but generally inferior          */
-
+/* Full model with 2 methods for partial likelihood    */
+/* estimation.                                         */
+/* ties = Breslow is default, but generally inferior   */
+/* for heavily tied data.                              */
+/* Fit with all three: if similar, then the data are   */
+/* not heavily tied.                                   */ 
+/* If it fails to converge (not the case here) then    */
+/* look at preliminary analyses to find out which      */
+/* features are unimportant -> drop those and it may   */
+/* converge.                                           */ 
+title;
 proc phreg data=lung;
-	class cell therapy;
-    model t*dead_int(0) = therapy kps diagtime age prior_int cell/ 
+	class therapy_int cell_int;
+    model t*dead_int(0) = therapy_int kps diagtime age prior_int cell_int/ 
 	ties=efron;
 run;
 
 
 proc phreg data=lung;
-	class cell;
+	class cell therapy;
     model t*dead_int(0) = therapy kps diagtime age prior_int cell/ 
 	ties=exact;
 run;
@@ -225,8 +308,8 @@ run;
 /* computation time on large datasets.                 */ 
 
 proc phreg data=lung;
-	class cell therapy prior_int;
-    model t*dead_int(0)= therapy kps diagtime age prior_int cell/ 
+	class cell therapy prior;
+    model t*dead_int(0)= therapy kps diagtime age prior cell/ 
 	ties=efron selection=backward;
 run;
 
@@ -234,7 +317,7 @@ run;
 
 /* Backward selection eleminated 'therapy' with p=.19 */ 
 /* But it is the feature of interest so I will leave  */
-/* it in to test it in my final model.                */ 
+/* it in to test in my final model.                   */ 
 
 /* Fit the *final* model with exact method.           */
 /*(Including therapy)                                 */ 
@@ -305,7 +388,6 @@ proc phreg data=lung;
 run;
 
 
-/*a small change */
 
 
 
