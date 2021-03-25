@@ -307,25 +307,38 @@ run;
 /*******************************************************/
 
 
+/*Easier to turn cell into an integer*/
+data lung2;
+	set lung; 
+	cell_int  = input(cell_int, 1.);         /*Create new variables*/
+	if cell = 'Squamous' then cell_int = 4;  /*Assign values to new variables*/
+	else if cell = 'Adeno' then cell_int = 1;
+	else if cell = 'Large' then cell_int = 2;
+	else cell_int = 3;
+run;
+
+proc print data=lung2; 
+run; 
 
 
+proc phreg data=lung2;
+	class cell_int; 
+	model t*dead_int(0)= kps cell_int 
+	/ties=exact;
+ run;
 
-/* Baseline survival function */
+
+/* Baseline survival                 */
+/* Cell type 4 = Squoamous = Baseline*/
 data null;
-	input kps cell$10.;
+	input kps cell_int;
 	cards;
-0 'Squamous'
-run;
+0 4
+run; 
 
-data null;
-  length cell $10;
-  format cell $10.;
-  set null;
-run;
-
-proc phreg data=lung;
-	class cell; 
-	model t*dead_int(0)= kps cell 
+proc phreg data=lung2;
+	class cell_int; 
+	model t*dead_int(0)= kps cell_int 
 	/ties=exact covb;
    	baseline out=a covariates=null survival=s lower=lcl upper=ucl
 	cumhaz=H lowercumhaz=lH uppercumhaz=uH;
@@ -335,7 +348,7 @@ run;
 /* Baseline survival & cumulative hazard functions */
 proc gplot data=a;
 	title "Baseline Survival Function";
-	symbol1 value=dot i=join;
+	symbol1 i=join width=1.5 value=dot H=.55 c=grey;
 	plot s*t;
 run;
 
