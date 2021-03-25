@@ -255,53 +255,7 @@ proc phreg data=lung;
 	ties=exact;
 run;
 
- 
-/* Baseline survival function 
-/* Finish this section later 
-
-data null;
-	input kps cell;
-	cards;
-0 0 
-run;
-
-proc phreg data=lung;
-	model t*dead_int(0)=kps cell
-	/ties=exact covb;
- 	baseline out=a covariates=null survival=s lower=lcl upper=ucl
-	cumhaz=H lowercumhaz=lH uppercumhaz=uH;
-run;
-*/
-/*******************************************************/
-
-
-
-
-
-
-/*******************************************************/
-/* checking proportional hazard assumption             */
-/* with resampling                                     */
-/*******************************************************/
-
-
-proc phreg data=lung;
-	class cell; 
-	model t*dead_int(0)= kps cell/ ties=exact;
-	assess ph/ resample;
-run;
-
-
-
-
-
-
-
-
-
-
-
-/*******************************************************/
+ /*******************************************************/
 /* Plotting the Baseline Survival function             */
 /*******************************************************/
 
@@ -350,6 +304,54 @@ proc gplot data=a;
 	symbol1 i=join width=1.5 value=dot H=.55 c=grey;
 	plot s*t;
 run;
+
+
+proc gplot data=a; 
+	title "Baseline Cumulative Hazard Function";
+	plot H*t;
+run;
+
+/*******************************************************/
+
+
+
+
+
+
+/*******************************************************/
+/* checking proportional hazard assumption             */
+/* with resampling                                     */
+/*******************************************************/
+
+
+proc phreg data=lung;
+	class cell; 
+	model t*dead_int(0)= kps cell/ ties=exact;
+	assess ph/ resample;
+run;
+
+
+
+
+
+
+
+
+
+/*******************************************************/
+/*******************************************************/
+/* Proportional Hazards Assumption Fails on all        */ 
+/* significant covariates                              */ 
+/*******************************************************/
+/*******************************************************/
+
+
+
+
+
+
+
+
 
 
 
